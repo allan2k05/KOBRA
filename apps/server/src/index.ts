@@ -56,6 +56,129 @@ interface QueuedPlayer {
     stake: string;
 }
 
+// ══════════════════════════════════════════════════════
+//  LEADERBOARD SYSTEM
+// ══════════════════════════════════════════════════════
+
+interface LeaderboardEntry {
+    address: string;
+    wins: number;
+    losses: number;
+    kills: number;
+    bestLength: number;
+    bestScore: number;
+    totalGames: number;
+    lastProofHash: string;
+    lastUpdated: number;
+}
+
+// In-memory leaderboard store (production: use Redis/PostgreSQL)
+const leaderboard: Map<string, LeaderboardEntry> = new Map();
+
+// Update leaderboard after a match ends
+function updateLeaderboard(finalState: FinalGameState): void {
+    const { winner, loser, finalScores, finalLengths, finalKills, matchId } = finalState;
+    
+    // Generate a proof hash from match data
+    const proofHash = `0x${Buffer.from(matchId + Date.now().toString()).toString('hex').slice(0, 16)}...`;
+    
+    // Update winner stats
+    if (winner && winner !== 'BOT') {
+        const existing = leaderboard.get(winner) || {
+            address: winner,
+            wins: 0,
+            losses: 0,
+            kills: 0,
+            bestLength: 0,
+            bestScore: 0,
+            totalGames: 0,
+            lastProofHash: '',
+            lastUpdated: 0
+        };
+        
+        existing.wins += 1;
+        existing.totalGames += 1;
+        existing.kills += finalKills[winner] || 0;
+        existing.bestLength = Math.max(existing.bestLength, finalLengths[winner] || 0);
+        existing.bestScore = Math.max(existing.bestScore, finalScores[winner] || 0);
+        existing.lastProofHash = proofHash;
+        existing.lastUpdated = Date.now();
+        
+        leaderboard.set(winner, existing);
+        console.log(`[Leaderboard] Updated winner ${winner}: ${existing.wins}W/${existing.losses}L`);
+    }
+    
+    // Update loser stats (skip BOT)
+    if (loser && loser !== 'BOT') {
+        const existing = leaderboard.get(loser) || {
+            address: loser,
+            wins: 0,
+            losses: 0,
+            kills: 0,
+            bestLength: 0,
+            bestScore: 0,
+            totalGames: 0,
+            lastProofHash: '',
+            lastUpdated: 0
+        };
+        
+        existing.losses += 1;
+        existing.totalGames += 1;
+        existing.kills += finalKills[loser] || 0;
+        existing.bestLength = Math.max(existing.bestLength, finalLengths[loser] || 0);
+        existing.bestScore = Math.max(existing.bestScore, finalScores[loser] || 0);
+        existing.lastUpdated = Date.now();
+        
+        leaderboard.set(loser, existing);
+        console.log(`[Leaderboard] Updated loser ${loser}: ${existing.wins}W/${existing.losses}L`);
+    }
+}
+
+// Get sorted leaderboard (by wins, then best score)
+function getLeaderboard(limit: number = 50): LeaderboardEntry[] {
+    return Array.from(leaderboard.values())
+        .sort((a, b) => {
+            if (b.wins !== a.wins) return b.wins - a.wins;
+            if (b.bestScore !== a.bestScore) return b.bestScore - a.bestScore;
+            return b.bestLength - a.bestLength;
+        })
+        .slice(0, limit);
+}
+
+// ── Leaderboard API Endpoints ──
+app.get('/api/leaderboard', (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const entries = getLeaderboard(limit);
+        res.json({ 
+            success: true, 
+            data: entries,
+            total: leaderboard.size,
+            updatedAt: Date.now()
+        });
+    } catch (err) {
+        console.error('Error fetching leaderboard:', err);
+        res.status(500).json({ success: false, error: 'internal' });
+    }
+});
+
+app.get('/api/leaderboard/:address', (req, res) => {
+    try {
+        const entry = leaderboard.get(req.params.address);
+        if (entry) {
+            // Calculate rank
+            const sorted = getLeaderboard(1000);
+            const rank = sorted.findIndex(e => e.address === req.params.address) + 1;
+            res.json({ success: true, data: { ...entry, rank } });
+        } else {
+            res.json({ success: true, data: null });
+        }
+    } catch (err) {
+        console.error('Error fetching player stats:', err);
+        res.status(500).json({ success: false, error: 'internal' });
+    }
+});
+
 // Matchmaking queues per stake tier
 const queues: Record<string, QueuedPlayer[]> = {
     '1000000': [],  // $1
@@ -279,6 +402,10 @@ io.on("connection", (socket) => {
                         };
 
                         console.log(`[Game] Slither Duel ended for ${matchId}. Winner: ${newState.winner} (Length: P1=${newState.player1.length}, P2=${newState.player2.length}, Kills: P1=${newState.player1.kills}, P2=${newState.player2.kills})`);
+                        
+                        // Update leaderboard with match results
+                        updateLeaderboard(finalState);
+                        
                         io.to(matchId).emit("game_over", finalState);
 
                         // Clean up
@@ -357,6 +484,9 @@ io.on("connection", (socket) => {
             matchType: 'forfeit'
         };
 
+        // Update leaderboard with match results
+        updateLeaderboard(finalState);
+        
         io.to(matchId).emit("game_over", finalState);
         activeGames.delete(matchId);
     });
@@ -415,6 +545,9 @@ io.on("connection", (socket) => {
                     matchType: 'disconnect'
                 };
 
+                // Update leaderboard with match results
+                updateLeaderboard(finalState);
+                
                 const winnerSocket = (game.player1Socket === socket.id) ? game.player2Socket : game.player1Socket;
                 io.to(winnerSocket).emit("game_over", finalState);
 
