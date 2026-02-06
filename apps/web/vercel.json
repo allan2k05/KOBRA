@@ -1,8 +1,5 @@
 {
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_SOCKET_URL": "@game-server-url"
-  }
+  "installCommand": "npm install"
 }
