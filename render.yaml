@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: kobra-game-server
+    env: node
+    plan: starter
+    buildCommand: npm run build --workspace=apps/server
+    startCommand: npm start --workspace=apps/server
+    envVars:
+      - key: PORT
+        value: 3005
+      - key: NODE_ENV
+        value: production
+    rootDir: apps/server
