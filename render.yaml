@@ -3,11 +3,8 @@ services:
     name: kobra-game-server
     env: node
     plan: starter
-    buildCommand: npm run build --workspace=apps/server
-    startCommand: npm start --workspace=apps/server
+    buildCommand: cd apps/server && npm install && npx tsc
+    startCommand: cd apps/server && node dist/index.js
     envVars:
-      - key: PORT
-        value: 3005
       - key: NODE_ENV
         value: production
-    rootDir: apps/server
