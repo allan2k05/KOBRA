@@ -3,7 +3,7 @@ services:
     name: kobra-game-server
     env: node
     plan: starter
-    buildCommand: cd apps/server && npm install && npx tsc
+    buildCommand: cd apps/server && npm install --include=dev && npx tsc
     startCommand: cd apps/server && node dist/index.js
     envVars:
       - key: NODE_ENV
