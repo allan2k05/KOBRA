@@ -1,0 +1,10 @@
+* text=auto
+*.ts eol=lf
+*.tsx eol=lf
+*.js eol=lf
+*.jsx eol=lf
+*.json eol=lf
+*.md text
+*.yml eol=lf
+*.yaml eol=lf
+package-lock.json text eol=lf
