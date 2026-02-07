@@ -9,6 +9,12 @@ initLiFi()
 export const metadata = {
     title: 'KŌBRA - Real-Money Snake Game',
     description: 'Multiplayer snake with Yellow state channels, LI.FI deposits, and ENS identity',
+    icons: {
+        icon: '/favicon.svg',
+        shortcut: '/favicon.svg',
+        apple: '/favicon.svg',
+    },
+    theme: '#14b8a6',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
