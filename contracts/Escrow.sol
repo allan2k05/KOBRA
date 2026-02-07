@@ -89,7 +89,10 @@ contract Escrow {
 
     /// @notice Settle a match using a ClearNode-signed proof.
     ///         Verifies the ECDSA signature, checks that the winner is a
-    ///         participant, and transfers the full pot to the winner.
+    ///         participant, and redistributes funds:
+    ///           - 2% rake stays in contract
+    ///           - 80% of net pot → winner
+    ///           - 20% of net pot → loser (refund)
     /// @param matchId     The match identifier.
     /// @param winner      Address of the winning player.
     /// @param signedState ClearNode ECDSA signature over keccak256(matchId, winner).
@@ -102,19 +105,39 @@ contract Escrow {
         require(winner == m.player1 || winner == m.player2, "Winner not in match");
 
         // ── Verify ClearNode signature ──
-        bytes32 messageHash = keccak256(abi.encodePacked(matchId, winner));
-        bytes32 ethSignedHash = _toEthSignedMessageHash(messageHash);
-        address recovered = _recoverSigner(ethSignedHash, signedState);
-        require(recovered == clearNodeSigner, "Invalid ClearNode signature");
+        {
+            bytes32 messageHash = keccak256(abi.encodePacked(matchId, winner));
+            bytes32 ethSignedHash = _toEthSignedMessageHash(messageHash);
+            require(_recoverSigner(ethSignedHash, signedState) == clearNodeSigner, "Invalid ClearNode signature");
+        }
 
-        // ── Settle ──
+        // ── Settle with 80/20 split & 2% rake ──
         m.settled = true;
-        uint256 payout = m.stake1 + m.stake2;
+        uint256 totalPot = m.stake1 + m.stake2;
+        uint256 rake = (totalPot * 2) / 100;        // 2% platform rake
+        uint256 netPot = totalPot - rake;
+        uint256 winnerPayout = (netPot * 80) / 100;  // 80% of net → winner
 
-        (bool success, ) = payable(winner).call{value: payout}("");
-        require(success, "Transfer failed");
+        // Transfer winner payout
+        (bool s1, ) = payable(winner).call{value: winnerPayout}("");
+        require(s1, "Winner transfer failed");
 
-        emit MatchSettled(matchId, winner, payout);
+        // Transfer loser refund (20% of net → loser)
+        address loser = (winner == m.player1) ? m.player2 : m.player1;
+        (bool s2, ) = payable(loser).call{value: netPot - winnerPayout}("");
+        require(s2, "Loser transfer failed");
+
+        // Rake stays in contract — owner can withdraw via withdrawRake()
+
+        emit MatchSettled(matchId, winner, winnerPayout);
+    }
+
+    /// @notice Withdraw accumulated rake (owner-only).
+    function withdrawRake(address payable to) external onlyOwner {
+        uint256 bal = address(this).balance;
+        require(bal > 0, "No rake to withdraw");
+        (bool ok, ) = to.call{value: bal}("");
+        require(ok, "Withdraw failed");
     }
 
     /// @notice Check if a match has been settled.

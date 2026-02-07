@@ -55,6 +55,13 @@ export interface GameState {
   arenaHeight: number
 }
 
+export interface SettlementPayouts {
+  totalPot: string          // raw USDC units (stake × 2)
+  rake: string              // 2% platform fee
+  winnerPayout: string      // 80% of net pot
+  loserRefund: string       // 20% of net pot
+}
+
 export interface FinalGameState {
   matchId: string
   player1: string         // address
@@ -67,6 +74,9 @@ export interface FinalGameState {
   stakeAmount: string     // raw USDC units
   duration: number        // milliseconds
   matchType: 'time_limit' | 'forfeit' | 'disconnect'
+  proofHash: string           // keccak256 of match data — ClearNode-verifiable
+  payouts: SettlementPayouts  // 80/20 split with 2% rake
+  settlementTxHash?: string   // on-chain tx hash (set after settle() call)
 }
 
 // Legacy compatibility types

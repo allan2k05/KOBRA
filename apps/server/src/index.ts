@@ -3,7 +3,8 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { processTick, createInitialState, setDirection, startBoost } from "./game/engine";
-import type { GameState, FinalGameState } from "./game/types";
+import type { GameState, FinalGameState, SettlementPayouts } from "./game/types";
+import crypto from "crypto";
 
 const app = express();
 
@@ -84,10 +85,10 @@ const leaderboard: Map<string, LeaderboardEntry> = new Map();
 
 // Update leaderboard after a match ends
 function updateLeaderboard(finalState: FinalGameState): void {
-    const { winner, loser, finalScores, finalLengths, finalKills, matchId } = finalState;
+    const { winner, loser, finalScores, finalLengths, finalKills, matchId, proofHash } = finalState;
     
-    // Generate a proof hash from match data
-    const proofHash = `0x${Buffer.from(matchId + Date.now().toString()).toString('hex').slice(0, 16)}...`;
+    // Use the real proof hash from the match
+    const proof = proofHash || `0x${Buffer.from(matchId + Date.now().toString()).toString('hex').slice(0, 16)}...`;
     
     // Update winner stats
     if (winner && winner !== 'BOT') {
@@ -108,7 +109,7 @@ function updateLeaderboard(finalState: FinalGameState): void {
         existing.kills += finalKills[winner] || 0;
         existing.bestLength = Math.max(existing.bestLength, finalLengths[winner] || 0);
         existing.bestScore = Math.max(existing.bestScore, finalScores[winner] || 0);
-        existing.lastProofHash = proofHash;
+        existing.lastProofHash = proof;
         existing.lastUpdated = Date.now();
         
         leaderboard.set(winner, existing);
@@ -185,6 +186,44 @@ app.get('/api/leaderboard/:address', (req, res) => {
         res.status(500).json({ success: false, error: 'internal' });
     }
 });
+
+// ══════════════════════════════════════════════════════
+//  SETTLEMENT HELPERS
+// ══════════════════════════════════════════════════════
+
+/**
+ * Generate a deterministic proof hash from match data.
+ * Mimics keccak256(abi.encodePacked(matchId, winner, scores, duration)).
+ * This is the hash that the ClearNode would sign in production.
+ */
+function generateProofHash(matchId: string, winner: string | null, scores: Record<string, number>, duration: number): string {
+    const data = `${matchId}:${winner || 'draw'}:${JSON.stringify(scores)}:${duration}`
+    const hash = crypto.createHash('sha256').update(data).digest('hex')
+    return `0x${hash}`
+}
+
+/**
+ * Calculate the 80/20 payout split with 2% rake.
+ * - Rake: 2% of total pot
+ * - Winner: 80% of (pot - rake) 
+ * - Loser: 20% of (pot - rake)
+ * Uses integer math (safe for USDC amounts < 2^53).
+ */
+function calculatePayouts(stakeAmount: string): SettlementPayouts {
+    const stake = Number(stakeAmount)
+    const totalPot = stake * 2
+    const rake = Math.floor(totalPot * 2 / 100)          // 2%
+    const netPot = totalPot - rake
+    const winnerPayout = Math.floor(netPot * 80 / 100)   // 80% of net
+    const loserRefund = netPot - winnerPayout              // 20% of net
+
+    return {
+        totalPot: totalPot.toString(),
+        rake: rake.toString(),
+        winnerPayout: winnerPayout.toString(),
+        loserRefund: loserRefund.toString(),
+    }
+}
 
 // Matchmaking queues per stake tier
 const queues: Record<string, QueuedPlayer[]> = {
@@ -405,7 +444,12 @@ io.on("connection", (socket) => {
                             },
                             stakeAmount: game.stake,
                             duration: Date.now() - game.startTime,
-                            matchType: 'time_limit'
+                            matchType: 'time_limit',
+                            proofHash: generateProofHash(matchId, newState.winner, {
+                                [newState.player1.address]: newState.player1.score,
+                                [newState.player2.address]: newState.player2.score,
+                            }, Date.now() - game.startTime),
+                            payouts: calculatePayouts(game.stake),
                         };
 
                         console.log(`[Game] KŌBRA match ended for ${matchId}. Winner: ${newState.winner} (Length: P1=${newState.player1.length}, P2=${newState.player2.length}, Kills: P1=${newState.player1.kills}, P2=${newState.player2.kills})`);
@@ -488,7 +532,12 @@ io.on("connection", (socket) => {
             },
             stakeAmount: game.stake,
             duration: Date.now() - game.startTime,
-            matchType: 'forfeit'
+            matchType: 'forfeit',
+            proofHash: generateProofHash(matchId, winner, {
+                [game.state.player1.address]: game.state.player1.score,
+                [game.state.player2.address]: game.state.player2.score,
+            }, Date.now() - game.startTime),
+            payouts: calculatePayouts(game.stake),
         };
 
         // Update leaderboard with match results
@@ -549,7 +598,12 @@ io.on("connection", (socket) => {
                     },
                     stakeAmount: game.stake,
                     duration: Date.now() - game.startTime,
-                    matchType: 'disconnect'
+                    matchType: 'disconnect',
+                    proofHash: generateProofHash(matchId, winnerAddress, {
+                        [game.state.player1.address]: game.state.player1.score,
+                        [game.state.player2.address]: game.state.player2.score,
+                    }, Date.now() - game.startTime),
+                    payouts: calculatePayouts(game.stake),
                 };
 
                 // Update leaderboard with match results

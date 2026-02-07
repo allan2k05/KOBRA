@@ -1,21 +1,23 @@
 /**
- * Shown on the results screen after the game ends.
- * Shows:
- *   1. The ClearNode-signed state hash (the cryptographic proof)
- *   2. Timing comparison: game duration + state count → 1 tx settlement
- *   3. "Settle On-Chain" button → calls escrow.settle()
- *   4. TX receipt + BaseScan link
+ * SettlementPanel — "Settle On-Chain" button + TX flow.
  *
- * This is the "oh damn" moment of the demo.
+ * Calls Escrow.settle(matchId, winner, signedState) on Base Sepolia.
+ * The contract verifies the ClearNode ECDSA signature, then distributes:
+ *   - 80% of net pot → winner
+ *   - 20% of net pot → loser
+ *   - 2% rake → stays in contract
+ *
+ * If Yellow ClearNode proof is available, uses the real signed state.
+ * Otherwise falls back to the server-generated proof hash.
  */
 
 'use client'
 import { useState } from 'react'
-import { useWriteContract } from 'wagmi'
-import { SettlementProof } from '../lib/yellow'
+import { useWriteContract, useSwitchChain, useChainId } from 'wagmi'
+import type { FinalGameState } from '../game/types'
 import { ESCROW_ADDRESS, CHAIN_BASE_SEPOLIA } from '../lib/constants'
 
-// Minimal escrow ABI — settle(bytes32 matchId, address winner, bytes signedState)
+// Escrow ABI — matches contracts/Escrow.sol
 const ESCROW_ABI = [
     {
         name: 'settle',
@@ -31,98 +33,150 @@ const ESCROW_ABI = [
 ] as const
 
 interface Props {
-    proof: SettlementProof
-    stateCount: number
-    matchDurationMs: number
+    finalState: FinalGameState
+    yellowProof: {
+        signedState: string
+        stateHash: string
+    } | null
+    onSettled: (txHash: string) => void
 }
 
-export function SettlementPanel({ proof, stateCount, matchDurationMs }: Props) {
-    const [settlementMs, setSettlementMs] = useState<number | null>(null)
+export function SettlementPanel({ finalState, yellowProof, onSettled }: Props) {
+    const [status, setStatus] = useState<'idle' | 'signing' | 'pending' | 'confirmed' | 'error'>('idle')
     const [txHash, setTxHash] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+
     const { writeContractAsync } = useWriteContract()
+    const { switchChainAsync } = useSwitchChain()
+    const currentChainId = useChainId()
+
+    // Convert matchId string to bytes32
+    const matchIdBytes32 = (() => {
+        const id = finalState.matchId
+        // Pad or hash the matchId to get a bytes32
+        const hex = Buffer.from(id).toString('hex').padEnd(64, '0').slice(0, 64)
+        return `0x${hex}` as `0x${string}`
+    })()
 
     const handleSettle = async () => {
-        const start = Date.now()
+        if (!finalState.winner) {
+            setError('Cannot settle a draw')
+            return
+        }
+
+        setStatus('signing')
+        setError(null)
+
         try {
+            // Auto-switch to Base Sepolia if on wrong chain
+            if (currentChainId !== CHAIN_BASE_SEPOLIA) {
+                try {
+                    await switchChainAsync({ chainId: CHAIN_BASE_SEPOLIA })
+                } catch (switchErr: any) {
+                    setStatus('error')
+                    setError('Please switch to Base Sepolia to settle')
+                    return
+                }
+            }
+
+            // Use Yellow ClearNode signed state if available, otherwise use proof hash
+            const signedState = (yellowProof?.signedState || finalState.proofHash) as `0x${string}`
+
             const hash = await writeContractAsync({
                 address: ESCROW_ADDRESS,
                 abi: ESCROW_ABI,
                 chainId: CHAIN_BASE_SEPOLIA,
                 functionName: 'settle',
                 args: [
-                    proof.matchId as `0x${string}`,
-                    proof.winner as `0x${string}`,
-                    proof.signedState as `0x${string}`,
+                    matchIdBytes32,
+                    finalState.winner as `0x${string}`,
+                    signedState,
                 ],
             })
+
             setTxHash(hash)
-            setSettlementMs(Date.now() - start)
-        } catch (e) {
-            console.error('[Settlement] Failed', e)
+            setStatus('pending')
+            onSettled(hash)
+        } catch (e: any) {
+            console.error('[Settlement] Failed:', e)
+            setStatus('error')
+
+            // Parse common error messages
+            if (e.message?.includes('User rejected') || e.message?.includes('denied')) {
+                setError('Transaction rejected by user')
+            } else if (e.message?.includes('Already settled')) {
+                setError('Match already settled on-chain')
+            } else if (e.message?.includes('Invalid ClearNode')) {
+                setError('Proof signature verification failed')
+            } else if (e.message?.includes('insufficient funds')) {
+                setError('Insufficient gas funds')
+            } else if (e.message?.includes('does not match') || e.message?.includes('chain')) {
+                setError('Please switch to Base Sepolia network')
+            } else {
+                setError(e.shortMessage || e.message || 'Settlement failed')
+            }
         }
     }
 
-    const gameSeconds = (matchDurationMs / 1000).toFixed(1)
-    const settleSeconds = settlementMs ? (settlementMs / 1000).toFixed(1) : null
-
-    return (
-        <div className="bg-black/90 border border-gray-800 rounded-2xl p-6 w-full max-w-md mx-auto shadow-2xl">
-            <h3 className="text-white font-bold text-lg mb-5 font-mono flex items-center gap-2">
-                <span className="text-green-400">⛓</span> Settlement Proof
-            </h3>
-
-            {/* The signed state hash — this IS the proof */}
-            <div className="bg-gray-900 rounded-xl p-4 mb-4">
-                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-mono">
-                    ClearNode Signed State Hash
-                </div>
-                <div className="text-green-400 font-mono text-sm break-all leading-relaxed">
-                    {proof.stateHash}
-                </div>
-            </div>
-
-            {/* Timing comparison: game → settlement */}
-            <div className="flex items-center gap-4 bg-gray-900 rounded-xl p-4 mb-4">
-                <div className="flex-1 text-center">
-                    <div className="text-white font-bold font-mono text-lg">{gameSeconds}s</div>
-                    <div className="text-xs text-gray-500 font-mono">{stateCount} states</div>
-                    <div className="text-xs text-gray-600 mt-0.5">Game</div>
-                </div>
-                <div className="text-gray-600 text-xl">→</div>
-                <div className="flex-1 text-center">
-                    <div className="text-white font-bold font-mono text-lg">
-                        {settleSeconds ? `${settleSeconds}s` : '—'}
-                    </div>
-                    <div className="text-xs text-gray-500 font-mono">1 transaction</div>
-                    <div className="text-xs text-gray-600 mt-0.5">Settlement</div>
-                </div>
-            </div>
-
-            {/* Settle button — or TX receipt */}
-            {!txHash ? (
+    if (status === 'idle' || status === 'error') {
+        return (
+            <div className="text-center">
                 <button
                     onClick={handleSettle}
-                    className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700
-                     text-black font-bold py-3.5 rounded-xl font-mono
-                     transition-colors shadow-lg shadow-green-500/20"
+                    className="w-full max-w-md bg-green-500 hover:bg-green-600 active:bg-green-700
+                        text-black font-bold py-4 rounded-xl font-mono text-lg
+                        transition-all shadow-lg shadow-green-500/20
+                        hover:shadow-green-500/40 hover:scale-[1.02]"
                 >
-                    Settle On-Chain →
+                    ⛓ Settle On-Chain →
                 </button>
-            ) : (
-                <div className="bg-green-900/30 border border-green-800 rounded-xl p-4 text-center">
-                    <div className="text-green-400 font-mono font-bold">✓ Settled</div>
-                    <div className="text-gray-400 font-mono text-xs mt-1">
-                        {txHash.slice(0, 10)}…{txHash.slice(-6)}
+                {error && (
+                    <div className="mt-3 text-red-400 font-mono text-xs">
+                        {error}
+                        <button
+                            onClick={handleSettle}
+                            className="text-cyan-400 hover:underline ml-2"
+                        >
+                            Retry
+                        </button>
                     </div>
+                )}
+                <div className="mt-2 text-gray-600 font-mono text-xs">
+                    Calls Escrow.settle() on Base Sepolia
+                </div>
+            </div>
+        )
+    }
+
+    if (status === 'signing') {
+        return (
+            <div className="text-center py-4">
+                <div className="text-yellow-400 font-mono text-sm animate-pulse">
+                    ✍️ Sign the settlement transaction in your wallet...
+                </div>
+            </div>
+        )
+    }
+
+    if (status === 'pending') {
+        return (
+            <div className="text-center py-4">
+                <div className="text-cyan-400 font-mono text-sm animate-pulse">
+                    ⏳ Transaction pending on Base Sepolia...
+                </div>
+                {txHash && (
                     <a
                         href={`https://sepolia.basescan.org/tx/${txHash}`}
-                        target="_blank" rel="noopener noreferrer"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-cyan-400 text-xs hover:underline mt-2 block font-mono"
                     >
-                        View on BaseScan →
+                        Track on BaseScan →
                     </a>
-                </div>
-            )}
-        </div>
-    )
+                )}
+            </div>
+        )
+    }
+
+    return null
 }
