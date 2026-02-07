@@ -231,7 +231,7 @@ function GameContent() {
                 <>
                     <div className="mb-6 text-center">
                         <div className="text-white font-mono text-2xl mb-2">
-                            SLITHER ARENA
+                            KŌBRA ARENA
                         </div>
                         <div className="text-gray-400 font-mono text-sm">
                             vs {opponent === 'BOT' ? '🤖 AI' : `${opponent.slice(0, 8)}...`} • Stake: ${Number(stake) / 1e6} USDC

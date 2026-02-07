@@ -122,7 +122,7 @@ export function LobbyScreen({ onMatchFound }: Props) {
                         KŌBR<span className="text-green-400">A</span>
                     </h1>
                     <p className="text-gray-400 text-lg font-mono">
-                        Slither-style snake arena. Real-money stakes verified by Yellow state channels.
+                        Real-money snake battle. Verified by Yellow state channels.
                     </p>
                 </div>
 
@@ -186,7 +186,7 @@ export function LobbyScreen({ onMatchFound }: Props) {
                          text-black font-bold text-xl py-6 rounded-xl font-mono
                          transition-colors shadow-lg shadow-green-500/20"
                         >
-                            Stake {STAKE_TIERS[selectedTier].label} · {gameMode === 'bot' ? 'Enter Slither Arena' : 'Find Match'} →
+                            Stake {STAKE_TIERS[selectedTier].label} · {gameMode === 'bot' ? 'Enter KŌBRA Arena' : 'Find Match'} →
                         </button>
                     </>
                 )}
@@ -196,7 +196,7 @@ export function LobbyScreen({ onMatchFound }: Props) {
                         <div className="flex items-center justify-center gap-3 mb-4">
                             <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
                             <span className="text-green-400 font-mono text-lg font-semibold">
-                                {gameMode === 'bot' ? '🐍 Entering Slither Arena...' : 'Finding opponent...'}
+                                {gameMode === 'bot' ? '🐍 Entering KŌBRA Arena...' : 'Finding opponent...'}
                             </span>
                         </div>
                         <p className="text-gray-500 font-mono text-sm">
