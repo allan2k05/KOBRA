@@ -30,7 +30,7 @@ console.log('PORT:', PORT);
 
 app.get("/", (req, res) => {
     console.log('Received request on /');
-    res.send("Slither Duel Game Server is Running!");
+    res.send("KŌBRA Game Server is Running!");
 });
 
 // Debug endpoint: returns current matchmaking queues and active games
@@ -361,7 +361,7 @@ io.on("connection", (socket) => {
         console.log(`[Game] Player ready. P1: ${game.player1Socket ? 'ready' : 'waiting'}, P2: ${game.player2Address === 'BOT' ? 'BOT ready' : (game.player2Socket ? 'ready' : 'waiting')}`);
 
         if (bothPlayersReady && !game.interval) {
-            console.log(`[Game] BOTH players ready - starting 2-minute Slither Duel for ${matchId}`);
+            console.log(`[Game] BOTH players ready - starting 2-minute KŌBRA match for ${matchId}`);
             game.startTime = Date.now();
             let lastTickTime = Date.now();
 
@@ -408,7 +408,7 @@ io.on("connection", (socket) => {
                             matchType: 'time_limit'
                         };
 
-                        console.log(`[Game] Slither Duel ended for ${matchId}. Winner: ${newState.winner} (Length: P1=${newState.player1.length}, P2=${newState.player2.length}, Kills: P1=${newState.player1.kills}, P2=${newState.player2.kills})`);
+                        console.log(`[Game] KŌBRA match ended for ${matchId}. Winner: ${newState.winner} (Length: P1=${newState.player1.length}, P2=${newState.player2.length}, Kills: P1=${newState.player1.kills}, P2=${newState.player2.kills})`);
                         
                         // Update leaderboard with match results
                         updateLeaderboard(finalState);
@@ -566,7 +566,7 @@ io.on("connection", (socket) => {
 
 console.log('Starting HTTP server...');
 httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ Slither Duel Server running on http://localhost:${PORT}`);
+    console.log(`✅ KŌBRA Server running on http://localhost:${PORT}`);
 }).on('error', (err) => {
     console.error('❌ Server error:', err);
 });
