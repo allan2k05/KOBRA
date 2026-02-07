@@ -24,39 +24,39 @@ export function GasOraclePanel({ stateCount, connected }: Props) {
     if (!connected || stateCount === 0) return null
 
     return (
-        <div className="bg-black/90 border border-cyan-500/20 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-lg shadow-cyan-500/5">
-            <div className="font-mono text-xs leading-tight">
-                <div className="text-gray-500 uppercase tracking-widest mb-1" style={{ fontSize: '9px' }}>
+        <div className="bg-black/90 border-2 border-cyan-500/30 rounded-2xl px-8 py-5 backdrop-blur-sm shadow-2xl shadow-cyan-500/10">
+            <div className="font-mono leading-tight">
+                <div className="text-gray-400 uppercase tracking-widest text-xs font-semibold mb-2">
                     Gas Oracle — Base L2
                 </div>
 
                 {/* Main comparison */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-5">
                     {/* On-chain cost */}
                     <div className="text-center">
-                        <div className="text-red-400 font-bold text-sm tabular-nums line-through decoration-red-500/50">
+                        <div className="text-red-400 font-bold text-3xl tabular-nums line-through decoration-red-500/50">
                             ${onChainCost}
                         </div>
-                        <div className="text-gray-600" style={{ fontSize: '8px' }}>
+                        <div className="text-gray-600 text-xs font-medium mt-1">
                             {txCount} on-chain txs
                         </div>
                     </div>
 
-                    <div className="text-gray-600">→</div>
+                    <div className="text-gray-500 text-2xl">→</div>
 
                     {/* Yellow cost */}
                     <div className="text-center">
-                        <div className="text-green-400 font-bold text-sm">
+                        <div className="text-green-400 font-bold text-3xl">
                             $0.00
                         </div>
-                        <div className="text-gray-600" style={{ fontSize: '8px' }}>
+                        <div className="text-gray-600 text-xs font-medium mt-1">
                             Yellow Network
                         </div>
                     </div>
                 </div>
 
                 {/* Detail line */}
-                <div className="text-gray-700 mt-1 flex items-center gap-1" style={{ fontSize: '8px' }}>
+                <div className="text-gray-600 mt-2 flex items-center gap-1.5 text-xs">
                     <span>{gasUsed} gas</span>
                     <span>•</span>
                     <span>{BASE_GAS_GWEI} gwei</span>
