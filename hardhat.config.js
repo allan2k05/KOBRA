@@ -2,7 +2,7 @@ require("@nomiclabs/hardhat-waffle");
 require("dotenv").config();
 
 module.exports = {
-  solidity: "0.8.0",
+  solidity: "0.8.19",
   networks: {
     sepolia: {
       url: process.env.INFURA_URL || "https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID",
