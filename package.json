@@ -12,6 +12,7 @@
     "devDependencies": {
         "@nomiclabs/hardhat-ethers": "^2.2.3",
         "@nomiclabs/hardhat-waffle": "^2.0.6",
+        "chai": "^6.2.2",
         "concurrently": "^8.2.2",
         "dotenv": "^17.2.4",
         "ethers": "^5.8.0"

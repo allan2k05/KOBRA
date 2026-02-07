@@ -113,10 +113,13 @@ export function LobbyScreen({ onMatchFound }: Props) {
             // Keep ref in sync so later socket handlers don't see stale closures
             matchDataRef.current = { opponent: opp, matchId: mid }
             
-            // Navigate to game page immediately for both modes.
-            // The game page handles Yellow session + ready_to_start.
-            // Signature verification happens on-chain via the escrow contract, not in the lobby.
-            onMatchFound(opp, STAKE_TIERS[selectedTier].amount, mid)
+            // For bot matches, skip signature — go straight to game
+            if (gameMode === 'bot') {
+                onMatchFound(opp, STAKE_TIERS[selectedTier].amount, mid)
+            } else {
+                // For multiplayer: show signature UI — both must sign before entering
+                setShowSignature(true)
+            }
         })
         
         socket.on('opponent_signed', () => {

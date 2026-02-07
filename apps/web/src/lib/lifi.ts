@@ -16,10 +16,9 @@ export function initLiFi() {
     if (initialized) return
     createConfig({
         integrator: process.env.NEXT_PUBLIC_LIFI_INTEGRATOR || 'KOBRA',
-        // Restrict to chains we actually use — eliminates RPC spam to 30+ unused networks
-        chains: {
-            allow: [1, 8453, 84532, 137, 42161],
-        },
+        // Provide an explicit empty chain list in demo/dev to avoid broad RPC
+        // probing by default. Cast to `any` to satisfy the SDK types here.
+        chains: [] as any,
     })
     initialized = true
 }

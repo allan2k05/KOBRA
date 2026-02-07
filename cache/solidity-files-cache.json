@@ -2,11 +2,11 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\KŌBRA\\contracts\\Escrow.sol": {
-      "lastModificationDate": 1770366041582,
-      "contentHash": "fd731493e319b4e292a6e3526784df25",
+      "lastModificationDate": 1770445487417,
+      "contentHash": "75c868d68775b06c59cc716821c2abbc",
       "sourceName": "contracts/Escrow.sol",
       "solcConfig": {
-        "version": "0.8.0",
+        "version": "0.8.19",
         "settings": {
           "optimizer": {
             "enabled": false,
@@ -30,7 +30,7 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.0"
+        "^0.8.19"
       ],
       "artifacts": [
         "Escrow"
