@@ -1,16 +1,16 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { LobbyScreen } from '../components/LobbyScreen'
 import Link from 'next/link'
 
 export default function HomePage() {
+    const router = useRouter()
     const [matchData, setMatchData] = useState<{ opponent: string; stake: string; matchId: string } | null>(null)
 
     if (matchData) {
-        // Redirect to game page with match data
-        if (typeof window !== 'undefined') {
-            window.location.href = `/game?opponent=${matchData.opponent}&stake=${matchData.stake}&matchId=${matchData.matchId}`
-        }
+        // Use Next.js router for SPA navigation (preserves socket connections)
+        router.push(`/game?opponent=${matchData.opponent}&stake=${matchData.stake}&matchId=${matchData.matchId}`)
         return <div className="min-h-screen bg-[#08090c] flex items-center justify-center text-white font-mono">Loading match...</div>
     }
 

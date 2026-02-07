@@ -30,14 +30,15 @@ function GameContent() {
     const [gameOver, setGameOver] = useState(false)
     const [matchDuration, setMatchDuration] = useState(0)
 
+    const [yellowStatus, setYellowStatus] = useState<'connecting' | 'connected' | 'failed'>('connecting')
+
     const socketRef = useRef<Socket | null>(null) // Keep socket connection
 
-    // 1. Game Server Connection (Socket.io)
+    // 1. Game Server Connection (Socket.io) — always create fresh connection
     useEffect(() => {
-        if (!address || !matchId) return
+        if (!address || !matchId || !opponent) return
 
-        // Try to reuse existing connection from window (if navigated from lobby)
-        // Otherwise create new one
+        // Create a new socket connection for the game page
         let socket: Socket
         const existingSocket = (window as any).__gameSocket
         
@@ -54,11 +55,9 @@ function GameContent() {
 
         const handleConnect = () => {
             console.log('[Game] Socket connected to server for Match:', matchId)
-            // For bot matches, join the match and start immediately
-            if (opponent === 'BOT') {
-                console.log('[Game] Bot match - sending ready_to_start on connect')
-                socket.emit('ready_to_start', { matchId, address })
-            }
+            // Send ready_to_start immediately — server waits for both players
+            console.log('[Game] Sending ready_to_start')
+            socket.emit('ready_to_start', { matchId, address })
         }
 
         // If socket is already connected, handle it immediately
@@ -82,6 +81,7 @@ function GameContent() {
                 }
 
                 setGameState(normalized)
+                setMatchActive(true) // Mark active once first state arrives
             } catch (err) {
                 console.error('Error normalizing server state:', err)
             }
@@ -111,33 +111,43 @@ function GameContent() {
         }
     }, [address, matchId, closeSession])
 
-    // 2. Yellow Session Initialization
+    // 2. Yellow Session Initialization (non-blocking — game starts regardless)
     useEffect(() => {
-        if (!address || !matchId) return
+        if (!address || !matchId || !opponent) return
         
-        // For bot matches, skip Yellow session and just activate the match
-        if (opponent === 'BOT' && !matchActive) {
-            console.log('[Game] Bot match - skipping Yellow session, starting game immediately')
-            setMatchActive(true)
-            // ready_to_start is already sent from handleConnect — no duplicate needed
+        // For bot matches, skip Yellow session
+        if (opponent === 'BOT') {
+            setYellowStatus('connected')
             return
         }
         
-        // For multiplayer matches, wait for walletClient and Yellow session
+        // For multiplayer matches, try to establish Yellow state channel in background
         if (!connected && walletClient && opponent !== 'BOT') {
-            console.log('[Game] Initiating Yellow session with walletClient available')
+            console.log('[Game] Initiating Yellow session in background')
+            setYellowStatus('connecting')
+            
+            const timeoutId = setTimeout(() => {
+                if (!connected) {
+                    console.warn('[Game] Yellow ClearNode connection timed out (game continues)')
+                    setYellowStatus('failed')
+                }
+            }, 15000)
+            
             connect().then(() => {
+                clearTimeout(timeoutId)
                 return openSession(opponent, stake)
             }).then(() => {
-                console.log('[Game] Yellow session ready - sending ready_to_start to server')
-                setMatchActive(true)
-                // NOW send ready_to_start after Yellow session is established
-                if (socketRef.current) {
-                    socketRef.current.emit('ready_to_start', { matchId, address })
-                }
-            }).catch(console.error)
+                console.log('[Game] Yellow session established')
+                setYellowStatus('connected')
+            }).catch((err) => {
+                clearTimeout(timeoutId)
+                console.error('[Game] Yellow session error (game continues):', err)
+                setYellowStatus('failed')
+            })
+            
+            return () => clearTimeout(timeoutId)
         }
-    }, [address, connected, opponent, stake, matchId, matchActive, connect, openSession, walletClient])
+    }, [address, connected, opponent, stake, matchId, connect, openSession, walletClient])
 
     // 3. Push incoming states to Yellow (Bridge) - skip for bot matches
     useEffect(() => {
@@ -217,12 +227,42 @@ function GameContent() {
         }
     }, [matchId, address])
 
+    if (!matchId || !opponent) {
+        return (
+            <div className="min-h-screen bg-[#08090c] flex items-center justify-center">
+                <div className="text-gray-500 font-mono text-center">
+                    <div>No match data found.</div>
+                    <Link href="/" className="text-green-400 hover:text-green-300 underline mt-2 block">
+                        Return to Lobby
+                    </Link>
+                </div>
+            </div>
+        )
+    }
+
     if (!gameState) {
         return (
             <div className="min-h-screen bg-[#08090c] flex items-center justify-center">
-                <div className="text-white font-mono text-center">
-                    <div>{opponent === 'BOT' ? '🎮 Connecting to game server...' : 'Connecting to Yellow ClearNode...'}</div>
-                    {opponent !== 'BOT' && !walletClient && <div className="text-sm text-gray-500 mt-2">Waiting for wallet client...</div>}
+                <div className="text-white font-mono text-center max-w-md">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <span>Waiting for {opponent === 'BOT' ? 'game server' : 'both players'}...</span>
+                    </div>
+                    
+                    {/* Yellow status indicator */}
+                    {opponent !== 'BOT' && (
+                        <div className="text-xs mt-4 space-y-1">
+                            <div className={`${yellowStatus === 'connected' ? 'text-green-500' : yellowStatus === 'failed' ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                {yellowStatus === 'connecting' && '○ Yellow state channel: connecting...'}
+                                {yellowStatus === 'connected' && '● Yellow state channel: active'}
+                                {yellowStatus === 'failed' && '○ Yellow state channel: offline (game will proceed)'}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {!walletClient && (
+                        <div className="text-sm text-gray-500 mt-2">Waiting for wallet...</div>
+                    )}
                 </div>
             </div>
         )

@@ -2,7 +2,7 @@
  * Lobby screen - stake tier selection and matchmaking
  */
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { useAccount, useSignMessage } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
@@ -42,6 +42,9 @@ export function LobbyScreen({ onMatchFound }: Props) {
     const [showSignature, setShowSignature] = useState(false)
     const [waitingForOpponent, setWaitingForOpponent] = useState(false)
     const [mounted, setMounted] = useState(false)
+    
+    // Refs to avoid stale closures in socket handlers
+    const matchDataRef = useRef<{ opponent: string; matchId: string }>({ opponent: '', matchId: '' })
     
     const { signMessageAsync } = useSignMessage()
 
@@ -101,26 +104,27 @@ export function LobbyScreen({ onMatchFound }: Props) {
             })
         })
 
-        socket.on('match_found', ({ opponent, matchId }: { opponent: string, matchId: string }) => {
-            console.log('[Lobby] Match found:', opponent, matchId)
+        socket.on('match_found', ({ opponent: opp, matchId: mid }: { opponent: string, matchId: string }) => {
+            console.log('[Lobby] Match found:', opp, mid)
             setSearching(false)
             setMatchFound(true)
-            setOpponent(opponent)
-            setMatchId(matchId)
+            setOpponent(opp)
+            setMatchId(mid)
+            // Keep ref in sync so later socket handlers don't see stale closures
+            matchDataRef.current = { opponent: opp, matchId: mid }
             
-            // For bot matches, skip signature verification
-            if (gameMode === 'bot') {
-                onMatchFound(opponent, STAKE_TIERS[selectedTier].amount, matchId)
-            } else {
-                // Show signature verification for multiplayer
-                setShowSignature(true)
-            }
+            // Navigate to game page immediately for both modes.
+            // The game page handles Yellow session + ready_to_start.
+            // Signature verification happens on-chain via the escrow contract, not in the lobby.
+            onMatchFound(opp, STAKE_TIERS[selectedTier].amount, mid)
         })
         
         socket.on('opponent_signed', () => {
-            console.log('[Lobby] Opponent has signed, starting game')
+            // Read from ref — NOT from stale closure state
+            const { opponent: opp, matchId: mid } = matchDataRef.current
+            console.log('[Lobby] Opponent has signed, starting game:', opp, mid)
             setWaitingForOpponent(false)
-            onMatchFound(opponent, STAKE_TIERS[selectedTier].amount, matchId)
+            onMatchFound(opp, STAKE_TIERS[selectedTier].amount, mid)
         })
         
         socket.on('waiting_for_opponent_signature', () => {
