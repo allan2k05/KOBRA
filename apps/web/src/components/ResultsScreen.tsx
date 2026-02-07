@@ -163,46 +163,117 @@ export function ResultsScreen({ finalState, playerAddress, yellowProof, stateCou
                 </div>
             </div>
 
-            {/* ── Proof Hash ── */}
-            <div className="bg-black/80 border border-gray-800 rounded-2xl p-6">
-                <h3 className="text-white font-mono font-bold text-sm mb-4 flex items-center gap-2">
-                    <span className="text-cyan-400">⛓</span> Settlement Proof
+            {/* ── Yellow Network Settlement Proof ── */}
+            <div className="bg-black/80 border border-cyan-500/30 rounded-2xl p-6 relative overflow-hidden">
+                {/* Subtle animated glow border */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 via-green-500/5 to-cyan-500/5 animate-pulse pointer-events-none" />
+
+                <h3 className="text-white font-mono font-bold text-sm mb-5 flex items-center gap-2 relative">
+                    <span className="text-cyan-400 text-base">⛓</span> Yellow Network — ClearNode Settlement Proof
                 </h3>
 
+                {/* ── Big dramatic stats row ── */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="bg-gray-900/80 rounded-xl p-3 text-center border border-gray-800">
+                        <div className="text-2xl font-bold font-mono text-green-400">{stateCount}</div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">States Signed</div>
+                    </div>
+                    <div className="bg-gray-900/80 rounded-xl p-3 text-center border border-gray-800">
+                        <div className="text-2xl font-bold font-mono text-white">{matchDurationSec}s</div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">Match Duration</div>
+                    </div>
+                    <div className="bg-gray-900/80 rounded-xl p-3 text-center border border-gray-800">
+                        <div className="text-2xl font-bold font-mono text-cyan-400">1</div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">Settlement TX</div>
+                    </div>
+                </div>
+
+                {/* ── On-chain cost savings ── */}
+                <div className="bg-gray-900/80 rounded-xl p-4 mb-4 border border-gray-800">
+                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-mono">
+                        Gas Savings via Yellow Network
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <span className="text-red-400 font-mono text-lg font-bold line-through decoration-red-500/50">
+                                ${(stateCount * 0.0672).toFixed(2)}
+                            </span>
+                            <span className="text-gray-600 text-xs ml-2 font-mono">
+                                ({stateCount} on-chain txs)
+                            </span>
+                        </div>
+                        <div className="text-gray-600 text-lg">→</div>
+                        <div>
+                            <span className="text-green-400 font-mono text-lg font-bold">$0.00</span>
+                            <span className="text-gray-600 text-xs ml-2 font-mono">Yellow Network</span>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Server proof hash (always available) */}
-                <div className="bg-gray-900 rounded-xl p-4 mb-3">
-                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-1.5 font-mono">
+                <div className="bg-gray-900/80 rounded-xl p-4 mb-3 border border-gray-800">
+                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-1.5 font-mono flex items-center gap-2">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400" />
                         Match Proof Hash
                     </div>
-                    <div className="text-green-400 font-mono text-xs break-all leading-relaxed">
+                    <div className="text-green-400 font-mono text-xs break-all leading-relaxed select-all">
                         {finalState.proofHash}
                     </div>
                 </div>
 
                 {/* Yellow ClearNode proof (if available) */}
                 {yellowProof && (
-                    <div className="bg-gray-900 rounded-xl p-4 mb-3">
-                        <div className="text-xs text-gray-500 uppercase tracking-widest mb-1.5 font-mono">
-                            ClearNode Signed State
+                    <div className="bg-gray-900/80 rounded-xl p-4 mb-3 border border-cyan-500/20">
+                        <div className="text-xs text-cyan-400/80 uppercase tracking-widest mb-1.5 font-mono flex items-center gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            ClearNode Signed State Hash
                         </div>
-                        <div className="text-cyan-400 font-mono text-xs break-all leading-relaxed">
+                        <div className="text-cyan-400 font-mono text-xs break-all leading-relaxed select-all">
                             {yellowProof.stateHash}
                         </div>
+                        {yellowProof.signedState && (
+                            <details className="mt-2">
+                                <summary className="text-gray-600 text-xs font-mono cursor-pointer hover:text-gray-400 transition">
+                                    Show signed state data →
+                                </summary>
+                                <div className="text-gray-500 font-mono text-xs break-all mt-1 leading-relaxed max-h-20 overflow-auto select-all">
+                                    {yellowProof.signedState}
+                                </div>
+                            </details>
+                        )}
                     </div>
                 )}
 
-                {/* Timing comparison */}
-                <div className="flex items-center gap-4 bg-gray-900 rounded-xl p-4">
-                    <div className="flex-1 text-center">
-                        <div className="text-white font-bold font-mono text-lg">{matchDurationSec}s</div>
-                        <div className="text-xs text-gray-500 font-mono">{stateCount} states</div>
-                        <div className="text-xs text-gray-600 mt-0.5">Game Duration</div>
+                {/* ── Dramatic timing contrast ── */}
+                <div className="bg-gradient-to-r from-gray-900/80 to-gray-900/60 rounded-xl p-4 border border-gray-800">
+                    <div className="text-xs text-gray-500 uppercase tracking-widest mb-3 font-mono">
+                        State Channel → On-Chain Settlement
                     </div>
-                    <div className="text-gray-600 text-xl">→</div>
-                    <div className="flex-1 text-center">
-                        <div className="text-white font-bold font-mono text-lg">1</div>
-                        <div className="text-xs text-gray-500 font-mono">transaction</div>
-                        <div className="text-xs text-gray-600 mt-0.5">On-Chain Settlement</div>
+                    <div className="flex items-center gap-3">
+                        {/* Timeline visualization */}
+                        <div className="flex-1 relative">
+                            <div className="flex items-center gap-2">
+                                <div className="text-xs font-mono text-gray-400">{matchDurationSec}s gameplay</div>
+                                <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full" style={{ width: '100%' }} />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 text-center">
+                                <div className="text-xs font-mono text-gray-400">~2s settle</div>
+                                <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full" style={{ width: `${Math.max(2, (2 / Number(matchDurationSec)) * 100)}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                        {/* Summary */}
+                        <div className="text-right font-mono">
+                            <div className="text-green-400 text-xs">
+                                <span className="text-white font-bold">{stateCount}</span> state updates
+                            </div>
+                            <div className="text-cyan-400 text-xs">
+                                <span className="text-white font-bold">1</span> on-chain tx
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

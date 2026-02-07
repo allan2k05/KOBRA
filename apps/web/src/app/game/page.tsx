@@ -4,6 +4,8 @@ import { io, Socket } from 'socket.io-client'
 import { useSearchParams } from 'next/navigation'
 import { GameCanvas } from '../../components/GameCanvas'
 import { ResultsScreen } from '../../components/ResultsScreen'
+import { LiveYellowTicker } from '../../components/LiveYellowTicker'
+import { GasOraclePanel } from '../../components/GasOraclePanel'
 import { useYellowSession } from '../../hooks/useYellowSession'
 import type { GameState, FinalGameState } from '../../game/types'
 import { useAccount, useWalletClient } from 'wagmi'
@@ -256,16 +258,15 @@ function GameContent() {
                         </span>
                     )} • Stake: ${Number(stake) / 1e6} USDC
                 </div>
-                {/* Yellow status during game */}
-                {opponent !== 'BOT' && (
-                    <div className="text-xs mt-1">
-                        <span className={yellowStatus === 'connected' ? 'text-green-600' : yellowStatus === 'failed' ? 'text-yellow-700' : 'text-gray-700'}>
-                            {yellowStatus === 'connected' ? '● Yellow' : yellowStatus === 'failed' ? '○ Yellow offline' : '○ Yellow...'}
-                        </span>
-                        {connected && <span className="text-gray-700 ml-2">{stateCount} states</span>}
-                    </div>
-                )}
             </div>
+
+            {/* ── Yellow Network Live HUD — prominently visible during gameplay ── */}
+            {opponent !== 'BOT' && (
+                <div className="flex items-center gap-3 mb-4 flex-wrap justify-center">
+                    <LiveYellowTicker stateCount={stateCount} connected={connected} />
+                    <GasOraclePanel stateCount={stateCount} connected={connected} />
+                </div>
+            )}
 
             <GameCanvas
                 gameState={gameState}
