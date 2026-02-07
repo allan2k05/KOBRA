@@ -9,6 +9,8 @@ import { useYellowSession } from '../../hooks/useYellowSession'
 import type { GameState, FinalGameState } from '../../game/types'
 import { useAccount, useWalletClient } from 'wagmi'
 import Link from 'next/link'
+import { useENS } from '../../hooks/useENS'
+import { PlayerBadge } from '../../components/PlayerBadge'
 
 import { Suspense } from 'react'
 
@@ -21,6 +23,7 @@ function GameContent() {
     const { address } = useAccount()
     const { data: walletClient } = useWalletClient()
     const { connected, stateCount, proof, connect, openSession, pushGameState, closeSession } = useYellowSession()
+    const { ensName: opponentENS, ensAvatar: opponentAvatar, displayName: opponentDisplay } = useENS(opponent !== 'BOT' ? opponent : undefined)
 
     const [gameState, setGameState] = useState<GameState | null>(null)
     const [matchActive, setMatchActive] = useState(false)
@@ -233,8 +236,15 @@ function GameContent() {
                         <div className="text-white font-mono text-2xl mb-2">
                             KŌBRA ARENA
                         </div>
-                        <div className="text-gray-400 font-mono text-sm">
-                            vs {opponent === 'BOT' ? '🤖 AI' : `${opponent.slice(0, 8)}...`} • Stake: ${Number(stake) / 1e6} USDC
+                        <div className="text-gray-400 font-mono text-sm flex items-center justify-center gap-2">
+                            vs {opponent === 'BOT' ? '🤖 AI' : (
+                                <span className="inline-flex items-center gap-1.5">
+                                    {opponentAvatar && (
+                                        <img src={opponentAvatar} alt="" className="w-5 h-5 rounded-full inline" />
+                                    )}
+                                    <span className="text-green-400">{opponentDisplay}</span>
+                                </span>
+                            )} • Stake: ${Number(stake) / 1e6} USDC
                         </div>
                     </div>
 
@@ -265,6 +275,13 @@ function GameContent() {
                         <h2 className="text-4xl font-bold text-white font-mono mb-4">
                             {gameState.winner === address ? '🎉 VICTORY!' : '💀 DEFEATED'}
                         </h2>
+                        {/* ENS-resolved winner display */}
+                        {gameState.winner && gameState.winner !== 'BOT' && (
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                                <span className="text-gray-500 font-mono text-sm">Winner:</span>
+                                <PlayerBadge address={gameState.winner} size="md" />
+                            </div>
+                        )}
                         <div className="text-gray-400 font-mono">
                             Final Length: {(gameState.player1.address === address ? gameState.player1.length : gameState.player2.length).toFixed(0)}px
                         </div>

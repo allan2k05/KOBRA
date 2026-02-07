@@ -8,9 +8,26 @@ import { useAccount, useSignMessage } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { STAKE_TIERS, StakeTier } from '../lib/constants'
 import { DepositModal } from './DepositModal'
+import { useENS } from '../hooks/useENS'
 
 interface Props {
     onMatchFound: (opponent: string, stake: string, matchId: string) => void
+}
+
+/** ENS-resolved opponent display (used in "Match Found" card) */
+function OpponentENSDisplay({ address }: { address: string }) {
+    const { ensName, ensAvatar, displayName, isLoading } = useENS(address)
+    return (
+        <div className="flex items-center justify-center gap-2 text-gray-400 font-mono">
+            <span>Opponent:</span>
+            {ensAvatar && (
+                <img src={ensAvatar} alt="" className="w-6 h-6 rounded-full" />
+            )}
+            <span className="text-green-400">
+                {isLoading ? '…' : displayName}
+            </span>
+        </div>
+    )
 }
 
 export function LobbyScreen({ onMatchFound }: Props) {
@@ -211,9 +228,7 @@ export function LobbyScreen({ onMatchFound }: Props) {
                     <div className="bg-black/60 border border-gray-800 rounded-2xl p-8 text-center">
                         <div className="mb-6">
                             <h3 className="text-white font-mono font-bold text-xl mb-2">✅ Match Found!</h3>
-                            <p className="text-gray-400 font-mono">
-                                Opponent: <span className="text-green-400">{opponent.slice(0, 6)}...{opponent.slice(-4)}</span>
-                            </p>
+                            <OpponentENSDisplay address={opponent} />
                             <p className="text-gray-400 font-mono">
                                 Stake: <span className="text-yellow-400">{STAKE_TIERS[selectedTier].label}</span>
                             </p>
