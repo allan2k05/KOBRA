@@ -43,7 +43,7 @@ export function LobbyScreen({ onMatchFound }: Props) {
     const [waitingForOpponent, setWaitingForOpponent] = useState(false)
     const [mounted, setMounted] = useState(false)
     
-    const { signMessage } = useSignMessage()
+    const { signMessageAsync } = useSignMessage()
 
     useEffect(() => {
         setMounted(true)
@@ -56,21 +56,21 @@ export function LobbyScreen({ onMatchFound }: Props) {
 
     const handleSignMatch = async () => {
         const socket = (window as any).__gameSocket
-        if (!socket) return
+        if (!socket || !address) return
         
         try {
             // Create signature message
             const message = `KŌBRA Match Verification\n\nMatch ID: ${matchId}\nStake: ${STAKE_TIERS[selectedTier].label}\nOpponent: ${opponent}\nTimestamp: ${Date.now()}`
             
-            // Sign the message
-            const signature = await signMessage({ message })
+            // Sign the message (signMessageAsync returns the signature in wagmi v2)
+            const signature = await signMessageAsync({ message })
             
             console.log('[Lobby] Signature created:', signature)
             
             // Send signature to server
             socket.emit('match_signature', {
                 matchId,
-                address: address,
+                address,
                 signature,
                 message
             })

@@ -33,6 +33,16 @@ export function DepositModal({ stakeAmount, onClose, onComplete }: Props) {
         },
         fromAmount: Number(stakeAmount) / 1e6, // convert raw units to display amount
         integrator: 'KOBRA',
+        // Restrict chains to eliminate RPC spam from unused networks
+        chains: {
+            allow: [
+                1,      // Ethereum Mainnet
+                8453,   // Base
+                84532,  // Base Sepolia
+                137,    // Polygon
+                42161,  // Arbitrum
+            ],
+        },
     }
 
     return (
