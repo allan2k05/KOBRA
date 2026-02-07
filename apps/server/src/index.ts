@@ -9,13 +9,17 @@ const app = express();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "*";
 
-app.use(cors({ origin: FRONTEND_URL }));
+app.use(cors({
+    origin: process.env.FRONTEND_URL || "*",
+    credentials: true
+}));
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
         origin: FRONTEND_URL,
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
